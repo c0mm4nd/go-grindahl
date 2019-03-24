@@ -6,7 +6,7 @@ import (
 
 const (
 	Grindahl512Rows        = 8
-	Grindahl512Columns     = 8
+	Grindahl512Columns     = 13
 	Grindahl512BlankRounds = 8
 )
 
@@ -118,12 +118,22 @@ func ConvertBytesToULongSwapOrder(a_in []uint64, a_index int) uint64 {
 	return result
 }
 
-func ConvertUIntsToBytesSwapOrder(a_in []uint, a_index int, a_length int) (result [a_length * 4]uint) {
+func ConvertULongsToBytesSwapOrder(a_in []uint64, a_index int, a_length int)  [a_length * 4]uint64 {
 	if a_length == -1 {
 		a_length = len(a_in)
 	}
 
+	var result [a_length * 4]uint64
+
 	for j := 0; a_length > 0; {
+		j = j + 1
+		result[j] = a_in[a_index] >> 56
+		j = j + 1
+		result[j] = a_in[a_index] >> 48
+		j = j + 1
+		result[j] = a_in[a_index] >> 40
+		j = j + 1
+		result[j] = a_in[a_index] >> 32
 		j = j + 1
 		result[j] = a_in[a_index] >> 24
 		j = j + 1
@@ -132,11 +142,12 @@ func ConvertUIntsToBytesSwapOrder(a_in []uint, a_index int, a_length int) (resul
 		result[j] = a_in[a_index] >> 8
 		j = j + 1
 		result[j] = a_in[a_index]
+
 		a_length = a_length - 1
 		a_index = a_index + 1
 	}
 
-	return
+	return result
 }
 
 var (
@@ -179,11 +190,11 @@ func New512() (result *Grindahl512) {
 func (g *Grindahl512) Finish() {
 	padding_size := 2*BlockSize - (m_processed_bytes % BlockSize)
 	msg_length = (m_processed_bytes / Grindahl512Rows) + 1
-	var pad [padding_size]byte
+	var pad [padding_size]uint64
 	pad[0] = 0x80
 
 	ConvertULongToBytesSwapOrder(msg_length, pad, padding_size-8)
-	g.TransformBytes(pad, 0, padding_size-BlockSize)
+	g.TransformBlock(pad, 0)
 
 	g.mState[0] = ConvertBytesToULongSwapOrder(pad, padding_size-BlockSize)
 	g.InjectMsg(true)
@@ -198,8 +209,10 @@ func (g *Grindahl512) TransformBlock(aData []uint64, aIndex int) {
 	g.InjectMsg(false)
 }
 
-func GetResult() []uint64 {
-	return ConvertUIntsToBytesSwapOrder(g.mState, Grindahl512Columns-HashSize/Grindahl512Rows, HashSize/Grindahl512Rows)
+func (g *Grindahl512) GetResult() [HashSize/Grindahl512Rows*4]uint64 {
+	var a []uint64
+	copy(a, g.mState[:13])
+	return ConvertULongsToBytesSwapOrder(a, Grindahl512Columns-HashSize/Grindahl512Rows, HashSize/Grindahl512Rows)
 }
 
 func (g *Grindahl512) InjectMsg(a_full_process bool) {
